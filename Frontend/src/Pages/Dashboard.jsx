@@ -36,7 +36,7 @@ const Dashboard = () => {
         <div className="w-64 bg-[#1E1C2E] text-white p-6 flex flex-col">
           {/* Logo */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold">QuizMaker</h1>
+            <h1 className="text-2xl font-bold">Hash - Quiz Learning Platform</h1>
           </div>
 
           <div className="border-b border-gray-700 mb-6"></div>
