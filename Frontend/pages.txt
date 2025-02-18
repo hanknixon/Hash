@@ -1,14 +1,14 @@
 All Planned pages -->
 
-x1. Login Page
-x2. Dashboard Page - Student
+1. Login Page -- Done
+2. Dashboard Page - Student -- Done
 3. Dashboard Page - Teacher
-4. Dashboard Page - HOD/Admin
-5. Student Side - Subjects Page
-6. Student Side - Notes/Materials/Syllabus/Prev-QnPs Page
-7. Student Side - Quiz Page
-8. Student Side - Results Page/Synopsis Page
-9. Student Side - Ranks Page
+4. Dashboard Page - HOD/Admin -- Done
+5. Student Side - Subjects Page -- Done
+6. Student Side - Notes/Materials/Syllabus/Prev-QnPs Page -- Done
+7. Student Side - Quiz Page -- Done
+8. Student Side - Results Page/Synopsis Page -- Done
+9. Student Side - Ranks Page -- Done
 10. Teacher Side - All Classes Page
 11. Teacher Side - All Subjects Page
 12. Teacher Side - All Students Page

@@ -1,0 +1,12 @@
+Lowest to Highest Ranks
+
+1. Novice – Just getting started.
+2. Apprentice – Building a foundation.
+3. Challenger – Actively engaging in quizzes.
+4. Analyst – Developing critical thinking.
+5. Scholar – Strong subject understanding.
+6. Mastermind – Excelling in multiple topics.
+7. Strategist – Applying knowledge with precision.
+8. Expert – Consistently achieving high scores.
+9. Elite – Among the top performers.
+10. Grandmaster – The pinnacle of knowledge.

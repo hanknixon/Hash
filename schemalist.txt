@@ -1,0 +1,6 @@
+"*" indicates Primary key
+
+Student (*student_id*,password)
+Teacher (*teacher_id*,password)
+Admin (*admin_id*,password)
+Subjects (*semester_id,subject_code*,subject_name) --> Composite Primary Key
