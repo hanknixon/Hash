@@ -1,7 +1,7 @@
 All Planned pages -->
 
-1. Login Page
-2. Dashboard Page - Student
+x1. Login Page
+x2. Dashboard Page - Student
 3. Dashboard Page - Teacher
 4. Dashboard Page - HOD/Admin
 5. Student Side - Subjects Page
