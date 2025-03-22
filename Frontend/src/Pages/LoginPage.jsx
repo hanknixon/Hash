@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { FlipWords } from '../../ui/flip-words';
-import { Spotlight } from '../../ui/spotlight-new';
-import { LoadingScreen } from '../components/LoadingScreen';
+import React, {useState, useEffect} from 'react';
+import {useNavigate} from "react-router-dom";
+import {Eye, EyeOff} from 'lucide-react';
+import {motion} from 'framer-motion';
+import {FlipWords} from '../../ui/flip-words';
+import {Spotlight} from '../../ui/spotlight-new';
+import {LoadingScreen} from '../Components/LoadingScreen';
 
 function validateEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -43,43 +43,59 @@ function LoginPage() {
         };
     }, []);
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
+        setLoading(true);
         setError("");
 
-        if (!validateEmail(email)) {
-            setError("Invalid email or password. Please try again.");
-            return;
-        }
+        try {
+            const response = await fetch("http://localhost:8000/login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({email, password}),
+            });
 
-        setTimeout(() => {
-        if (email === "user@gmail.com" && password === "user@123") {
-            navigate("/StudentDashboard");
-        } else if (email === "teacher@gmail.com" && password === "teacher@123") {
-            navigate("/TeacherDashboard");
-        } else if (email === "admin@gmail.com" && password === "admin@123") {
-            navigate("AdminDashboard");
-        } else {
-            setError("Invalid email or password. Please try again.");
+            const data = await response.json();
+            console.log("🔥 Full API Response:", JSON.stringify(data, null, 2));
+
+            // ✅ Ensure all necessary fields are present before saving
+            if (response.ok && data?.role && data?.email) {
+                if (data.role === "teacher" && !data.teacher_id) {
+                    console.error("❌ Missing teacher_id in API response!");
+                    setError("Login failed: teacher_id missing.");
+                    return;
+                }
+
+                console.log("✅ Saving user to localStorage:", JSON.stringify(data));
+                localStorage.setItem("user", JSON.stringify(data));
+
+                // 🔄 Force a page reload after storing user data (to ensure it's available in other components)
+                setTimeout(() => {
+                    window.location.href = data.role === "student" ? "/studentdashboard" : "/teacherdashboard";
+                }, 100);
+            } else {
+                setError("Invalid credentials or user not found.");
+            }
+        } catch (error) {
+            console.error("Login error:", error);
+            setError("Something went wrong. Please try again.");
+        } finally {
             setLoading(false);
         }
-    }, 1500);
-
-        setLoading(true);
-
     };
+
 
     const words = ["Learn", "Practice", "Test", "Rank", "Certify"];
 
     return (
         <>
-            {showInitialLoading && <LoadingScreen />}
+            {showInitialLoading && <LoadingScreen/>}
             <div className="min-h-screen bg-[#2D2B3D] flex items-center justify-center p-4 relative overflow-hidden">
-                <Spotlight />
+                <Spotlight/>
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 2 }}
+                    initial={{opacity: 0, y: 20}}
+                    animate={{opacity: 1, y: 0}}
+                    transition={{duration: 0.5, delay: 2}}
                     className="w-full max-w-[1100px] bg-[#1E1C2E] rounded-3xl overflow-hidden flex shadow-2xl relative z-10"
                 >
                     {/* Left Side - Image Section (Slideshow) */}
@@ -88,13 +104,13 @@ function LoginPage() {
                             <motion.div
                                 key={index}
                                 initial={false}
-                                animate={{ opacity: index === currentSlide ? 1 : 0 }}
-                                transition={{ duration: 1 }}
+                                animate={{opacity: index === currentSlide ? 1 : 0}}
+                                transition={{duration: 1}}
                                 className="absolute inset-0 bg-cover bg-center"
-                                style={{ backgroundImage: `url('${image}')` }}
+                                style={{backgroundImage: `url('${image}')`}}
                             />
                         ))}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#1E1C2E]/80 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#1E1C2E]/80 to-transparent"/>
                         <div className="relative z-10 p-12 flex flex-col h-full">
                             <motion.div
                                 initial={{scale: 0.5, opacity: 0}}
@@ -123,19 +139,19 @@ function LoginPage() {
                     {/* Right Side - Form Section */}
                     <motion.div
                         initial={{opacity: 0, x: 20}}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 2.4 }}
+                        animate={{opacity: 1, x: 0}}
+                        transition={{duration: 0.5, delay: 2.4}}
                         className="w-full lg:w-1/2 p-8 md:p-12"
                     >
                         <div className="flex justify-between items-center mb-10">
                             <h1 className="text-3xl text-white font-bold">Login to your Account</h1>
                         </div>
 
-                        <form className="space-y-6">
+                        <form className="space-y-6" onSubmit={handleLogin}>
                             <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5, delay: 2.6 }}
+                                initial={{opacity: 0, y: 20}}
+                                animate={{opacity: 1, y: 0}}
+                                transition={{duration: 0.5, delay: 2.6}}
                             >
                                 <input
                                     type="text"
@@ -147,9 +163,9 @@ function LoginPage() {
                             </motion.div>
 
                             <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5, delay: 2.8 }}
+                                initial={{opacity: 0, y: 20}}
+                                animate={{opacity: 1, y: 0}}
+                                transition={{duration: 0.5, delay: 2.8}}
                                 className="relative"
                             >
                                 <input
@@ -170,8 +186,8 @@ function LoginPage() {
 
                             {error && (
                                 <motion.p
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
+                                    initial={{opacity: 0}}
+                                    animate={{opacity: 1}}
                                     className="text-red-500 text-sm mb-4"
                                 >
                                     {error}
@@ -181,8 +197,8 @@ function LoginPage() {
                             {loading ? (
                                 <div className="flex justify-center">
                                     <motion.div
-                                        animate={{ rotate: 360 }}
-                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                        animate={{rotate: 360}}
+                                        transition={{duration: 1, repeat: Infinity, ease: "linear"}}
                                         className="h-8 w-8 border-4 border-white border-t-transparent rounded-full"
                                     />
                                 </div>
@@ -191,17 +207,17 @@ function LoginPage() {
                                     type="submit"
                                     onClick={handleLogin}
                                     className="w-full bg-[#7C3AED] text-white rounded-lg p-3 font-medium hover:bg-[#6D28D9] transition-all duration-300"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    whileHover={{scale: 1.02}}
+                                    whileTap={{scale: 0.98}}
                                 >
                                     Login to your account
                                 </motion.button>
                             )}
 
                             <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.5, delay: 3 }}
+                                initial={{opacity: 0}}
+                                animate={{opacity: 1}}
+                                transition={{duration: 0.5, delay: 3}}
                                 className="relative my-10"
                             >
                                 <div className="absolute inset-0 flex items-center">
@@ -213,27 +229,27 @@ function LoginPage() {
                             </motion.div>
 
                             <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5, delay: 3.2 }}
+                                initial={{opacity: 0, y: 20}}
+                                animate={{opacity: 1, y: 0}}
+                                transition={{duration: 0.5, delay: 3.2}}
                                 className="flex gap-6"
                             >
                                 <motion.button
                                     type="button"
                                     className="flex-1 flex items-center justify-center gap-2 bg-[#2D2B3D] text-white rounded-lg p-3 hover:bg-[#363447] transition-all duration-300"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    whileHover={{scale: 1.02}}
+                                    whileTap={{scale: 0.98}}
                                 >
-                                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5"/>
                                     Google
                                 </motion.button>
                                 <motion.button
                                     type="button"
                                     className="flex-1 flex items-center justify-center gap-2 bg-[#2D2B3D] text-white rounded-lg p-3 hover:bg-[#363447] transition-all duration-300"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    whileHover={{scale: 1.02}}
+                                    whileTap={{scale: 0.98}}
                                 >
-                                    <img src="https://www.apple.com/favicon.ico" alt="Apple" className="w-5 h-5" />
+                                    <img src="https://www.apple.com/favicon.ico" alt="Apple" className="w-5 h-5"/>
                                     Apple
                                 </motion.button>
                             </motion.div>
