@@ -32,7 +32,6 @@ function LoginPage() {
             setCurrentSlide((prev) => (prev + 1) % slides.length);
         }, 7000);
 
-        // Hide initial loading screen after 2 seconds
         const loadingTimer = setTimeout(() => {
             setShowInitialLoading(false);
         }, 2000);
@@ -58,7 +57,6 @@ function LoginPage() {
             const data = await response.json();
             console.log("🔥 Full API Response:", JSON.stringify(data, null, 2));
 
-            // ✅ Ensure all necessary fields are present before saving
             if (response.ok && data?.role && data?.email) {
                 if (data.role === "teacher" && !data.teacher_id) {
                     console.error("❌ Missing teacher_id in API response!");
@@ -69,9 +67,15 @@ function LoginPage() {
                 console.log("✅ Saving user to localStorage:", JSON.stringify(data));
                 localStorage.setItem("user", JSON.stringify(data));
 
-                // 🔄 Force a page reload after storing user data (to ensure it's available in other components)
+                let redirectPath = "/studentdashboard";
+                if (data.role === "teacher") {
+                    redirectPath = "/teacherdashboard";
+                } else if (data.role === "admin") {
+                    redirectPath = "/AdminDashboard";
+                }
+
                 setTimeout(() => {
-                    window.location.href = data.role === "student" ? "/studentdashboard" : "/teacherdashboard";
+                    window.location.href = redirectPath;
                 }, 100);
             } else {
                 setError("Invalid credentials or user not found.");
@@ -84,7 +88,6 @@ function LoginPage() {
         }
     };
 
-
     const words = ["Learn", "Practice", "Test", "Rank", "Certify"];
 
     return (
@@ -96,7 +99,7 @@ function LoginPage() {
                     initial={{opacity: 0, y: 20}}
                     animate={{opacity: 1, y: 0}}
                     transition={{duration: 0.5, delay: 2}}
-                    className="w-full max-w-[1100px] bg-[#1E1C2E] rounded-3xl overflow-hidden flex shadow-2xl relative z-10"
+                    className="w-full max-w-[1100px] bg-[#1E1C2E] rounded-3xl overflow-hidden flex shadow-2xl relative z-[50] pointer-events-auto"
                 >
                     {/* Left Side - Image Section (Slideshow) */}
                     <div className="hidden lg:flex lg:w-1/2 relative">
@@ -147,7 +150,7 @@ function LoginPage() {
                             <h1 className="text-3xl text-white font-bold">Login to your Account</h1>
                         </div>
 
-                        <form className="space-y-6" onSubmit={handleLogin}>
+                        <form onSubmit={handleLogin} className="space-y-6">
                             <motion.div
                                 initial={{opacity: 0, y: 20}}
                                 animate={{opacity: 1, y: 0}}
@@ -177,8 +180,8 @@ function LoginPage() {
                                 />
                                 <button
                                     type="button"
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8F8F8F] hover:text-white transition-colors"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8F8F8F] hover:text-white transition-colors cursor-pointer z-20"
                                 >
                                     {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
                                 </button>
@@ -205,8 +208,7 @@ function LoginPage() {
                             ) : (
                                 <motion.button
                                     type="submit"
-                                    onClick={handleLogin}
-                                    className="w-full bg-[#7C3AED] text-white rounded-lg p-3 font-medium hover:bg-[#6D28D9] transition-all duration-300"
+                                    className="w-full bg-[#7C3AED] text-white rounded-lg p-3 font-medium hover:bg-[#6D28D9] transition-all duration-300 cursor-pointer"
                                     whileHover={{scale: 1.02}}
                                     whileTap={{scale: 0.98}}
                                 >
@@ -236,7 +238,7 @@ function LoginPage() {
                             >
                                 <motion.button
                                     type="button"
-                                    className="flex-1 flex items-center justify-center gap-2 bg-[#2D2B3D] text-white rounded-lg p-3 hover:bg-[#363447] transition-all duration-300"
+                                    className="flex-1 flex items-center justify-center gap-2 bg-[#2D2B3D] text-white rounded-lg p-3 hover:bg-[#363447] transition-all duration-300 cursor-pointer"
                                     whileHover={{scale: 1.02}}
                                     whileTap={{scale: 0.98}}
                                 >
@@ -245,7 +247,7 @@ function LoginPage() {
                                 </motion.button>
                                 <motion.button
                                     type="button"
-                                    className="flex-1 flex items-center justify-center gap-2 bg-[#2D2B3D] text-white rounded-lg p-3 hover:bg-[#363447] transition-all duration-300"
+                                    className="flex-1 flex items-center justify-center gap-2 bg-[#2D2B3D] text-white rounded-lg p-3 hover:bg-[#363447] transition-all duration-300 cursor-pointer"
                                     whileHover={{scale: 1.02}}
                                     whileTap={{scale: 0.98}}
                                 >

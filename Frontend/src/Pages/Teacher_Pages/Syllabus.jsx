@@ -88,12 +88,10 @@ const Syllabus = () => {
         }
     }, []);
 
-
     const handleLogout = () => {
         localStorage.removeItem("user");
         navigate("/LoginPage");
     };
-
 
     const toggleSubject = (id) => {
         const newExpanded = new Set(expandedSubjects);
@@ -147,7 +145,7 @@ const Syllabus = () => {
                 }
             });
 
-            console.log("📜 API Response:", response.data); // ✅ Debugging log
+            console.log("📜 API Response:", response.data);
 
             if (!response.data || !response.data.parsed_data) {
                 console.error("❌ parsed_data is missing in the response.");
@@ -164,7 +162,6 @@ const Syllabus = () => {
             setLoading(false);
         }
     };
-
 
     const Modal = ({isOpen, onClose, title, children}) => (
         <AnimatePresence>
@@ -200,7 +197,7 @@ const Syllabus = () => {
             return null;
         }
 
-        console.log("📌 Received teacherId in PreviewModal:", teacherId); // Debugging
+        console.log("📌 Received teacherId in PreviewModal:", teacherId);
 
         const handleUpload = async () => {
             if (!data || !data.Subject) {
@@ -213,9 +210,13 @@ const Syllabus = () => {
                 return;
             }
 
+            // Extract student year from the data
+            const studentYear = data.StudentYear || "1"; // Default to 1 if not found
+
             const formattedData = {
                 subject_name: data.Subject,
-                teacher_id: teacherId,  // ✅ Include teacher ID
+                teacher_id: teacherId,
+                student_year: studentYear,
                 modules: data.Syllabus?.map((mod, index) => ({
                     module_no: index + 1,
                     module_name: mod.module,
@@ -226,11 +227,11 @@ const Syllabus = () => {
             };
 
             try {
-                console.log("📤 Final Sent Data:", JSON.stringify(formattedData, null, 2)); // Debugging log
+                console.log("📤 Sending data to server:", formattedData);
 
                 const response = await axios.post(
                     "http://localhost:8000/api/syllabus/upload",
-                    JSON.stringify(formattedData),
+                    formattedData,
                     {
                         headers: {
                             "Content-Type": "application/json"
@@ -238,17 +239,21 @@ const Syllabus = () => {
                     }
                 );
 
-                if (response.status === 201) {
+                console.log("📥 Server response:", response);
+
+                if (response.status >= 200 && response.status < 300) {
                     alert("Syllabus uploaded successfully!");
                     onClose();
                 } else {
-                    alert("Failed to upload syllabus.");
+                    throw new Error(`Unexpected status: ${response.status}`);
                 }
             } catch (error) {
-                console.error("Upload error:", error.response?.data || error.message);
-                alert(`Error uploading syllabus: ${error.response?.data?.detail || "Unknown error"}`);
+                console.error("Upload error:", error);
+                const errorMessage = error.response?.data?.detail || error.message || "Unknown error";
+                alert(`Error uploading syllabus: ${errorMessage}`);
             }
         };
+
 
         return (
             <motion.div
@@ -322,7 +327,6 @@ const Syllabus = () => {
             </motion.div>
         );
     };
-
 
     return (
         <div className="flex h-screen bg-[#2D2B3D]">

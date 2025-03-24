@@ -23,7 +23,7 @@ export const Spotlight = ({
       transition={{
         duration: 1.5,
       }}
-      className="pointer-events-none absolute inset-0 h-full w-full">
+      className="absolute inset-0 h-full w-full">
       <motion.div
         animate={{
           x: [0, xOffset, 0],

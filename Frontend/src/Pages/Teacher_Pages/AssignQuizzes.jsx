@@ -1,65 +1,82 @@
 import React, {useState, useEffect} from 'react';
 import {useNavigate} from "react-router-dom";
 import {
-    ArrowLeft, Plus, Wand2, Clock, Users,
-    BookOpen, Calendar, ChevronDown, X,
-    Bell, Search, CheckCircle, FileText,
-    Book, Trophy, LogOut
+    Plus, Wand2, X
 } from 'lucide-react';
 import {motion, AnimatePresence} from "framer-motion";
 import axios from 'axios';
+import TeacherNavbar from '../../Components/TeacherNavbar';
+import TeacherSidebar from '../../Components/TeacherSidebar';
 
 const AssignQuizzes = () => {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
     const [logoutModalOpen, setLogoutModalOpen] = useState(false);
-    const [quizData, setQuizData] = useState({
-        subject: '',
-        moduleNo: '',
-        topic: '',
-        difficulty: 'medium',
-        questionCount: 10,
-        timeLimit: 30,
-        dueDate: '',
-        class: '',
-    });
-    const [showAIModal, setShowAIModal] = useState(false);
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
     const [subjects, setSubjects] = useState([]);
     const [modules, setModules] = useState([]);
     const [topics, setTopics] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedModuleId, setSelectedModuleId] = useState(null);
+    const [generatedQuiz, setGeneratedQuiz] = useState(null);
+    const [currentTeacherId, setCurrentTeacherId] = useState(null);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
+    const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false);
+
+    // Quiz configuration state
+    const [quizConfig, setQuizConfig] = useState({
+        subject: '',
+        moduleId: '',
+        topicId: '',
+        difficulty: 'medium',
+        questionCount: 10,
+        timeLimit: 30,
+        dueDate: '',
+        student_year: ''  // Changed from class to student_year
+    });
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+            if (window.innerWidth >= 768) {
+                setSidebarOpen(true);
+            }
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    useEffect(() => {
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (user?.teacher_id) {
+            setCurrentTeacherId(user.teacher_id);
+        }
+    }, []);
 
     useEffect(() => {
         const fetchSubjects = async () => {
             try {
-                const user = JSON.parse(localStorage.getItem("user")); // Get logged-in teacher details
-                if (user && user.role === "teacher") {
+                const user = JSON.parse(localStorage.getItem("user"));
+                if (user?.teacher_id) {
                     const response = await axios.get(`http://localhost:8000/api/subjects/${user.teacher_id}`);
-                    console.log("📌 API Response:", response.data); // Debugging
-
-                    if (response.data && response.data.subjects) {
-                        setSubjects(response.data.subjects); //
-                    } else {
-                        console.warn("⚠️ Subjects data missing in response");
-                        setSubjects([]); // Set empty array to avoid crashes
+                    if (response.data?.subjects) {
+                        setSubjects(response.data.subjects);
                     }
                 }
             } catch (error) {
-                console.error(" Error fetching subjects:", error);
-                setSubjects([]); // Prevent app from breaking
+                console.error("Error fetching subjects:", error);
             }
         };
-
         fetchSubjects();
     }, []);
 
     useEffect(() => {
         const fetchModules = async () => {
-            if (quizData.subject) {
+            if (quizConfig.subject) {
                 try {
-                    const response = await axios.get(`http://localhost:8000/api/modules/${quizData.subject}`);
-                    console.log("Modules API Response:", response.data);
+                    const response = await axios.get(`http://localhost:8000/api/modules/${quizConfig.subject}`);
                     setModules(response.data.modules);
                 } catch (error) {
                     console.error('Error fetching modules:', error);
@@ -67,49 +84,92 @@ const AssignQuizzes = () => {
             }
         };
         fetchModules();
-    }, [quizData.subject]);
+    }, [quizConfig.subject]);
 
     useEffect(() => {
+        const fetchTopics = async () => {
+            if (selectedModuleId) {
+                try {
+                    const response = await axios.get(`http://localhost:8000/api/topics/${selectedModuleId}`);
+                    if (response.data?.topics) {
+                        setTopics(response.data.topics);
+                    }
+                } catch (error) {
+                    console.error("Error fetching topics:", error);
+                }
+            }
+        };
         if (selectedModuleId) {
-            fetchTopics(selectedModuleId);
+            fetchTopics();
         }
     }, [selectedModuleId]);
 
-    const fetchTopics = async (moduleId) => {
-        try {
-            const response = await axios.get(`http://localhost:8000/api/topics/${moduleId}`);
-            console.log("API Response:", response.data);
-
-            // Ensure topics are correctly extracted
-            if (response.data && response.data.topics) {
-                setTopics(response.data.topics);
-            } else {
-                setTopics([]);  // Set empty array if no topics
-            }
-        } catch (error) {
-            console.error("Error fetching topics:", error);
-            setTopics([]); // Handle errors gracefully
-        }
-    };
-
-
     const handleInputChange = (e) => {
         const {name, value} = e.target;
-        setQuizData(prev => ({
+        setQuizConfig(prev => ({
             ...prev,
             [name]: value
         }));
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        // Handle quiz assignment
-        console.log('Quiz Data:', quizData);
-        navigate('/TeacherDashboard');
+    const handleGenerateQuiz = async () => {
+        setLoading(true);
+        try {
+            const payload = {
+                topic_id: quizConfig.topicId,
+                difficulty: quizConfig.difficulty,
+                question_count: quizConfig.questionCount,
+                student_year: quizConfig.student_year
+            };
+
+            console.log("📌 Sending Payload to Backend:", payload);  // ✅ Debugging log
+
+            const response = await axios.post('http://localhost:8000/api/generate-quiz', payload);
+
+            let quizData = response.data?.quiz;
+            console.log("📌 Raw Quiz Data:", quizData);
+
+            if (typeof quizData === 'string' && quizData.startsWith("```json")) {
+                quizData = quizData.replace(/```json\n?/, '').replace(/\n?```/, '');
+                quizData = JSON.parse(quizData);
+            }
+
+            if (typeof quizData === 'object' && quizData !== null) {
+                console.log("📌 Full Quiz Data:", JSON.stringify(quizData, null, 2));
+                setGeneratedQuiz(quizData);
+                setPreviewModalOpen(true);
+            } else {
+                console.error("❌ Unexpected quiz format:", quizData);
+            }
+        } catch (error) {
+            console.error("❌ Error generating quiz:", error);
+            if (error.response) {
+                console.error("📌 Response Data:", error.response.data);  // ✅ Log backend error
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleGenerateWithAI = () => {
-        setShowAIModal(true);
+
+    const handleUploadQuiz = async () => {
+        try {
+            const quizData = {
+                teacher_id: currentTeacherId,
+                subject_id: quizConfig.subject,
+                topic_id: quizConfig.topicId,
+                difficulty: quizConfig.difficulty,
+                questions: generatedQuiz.questions,
+                time_limit: quizConfig.timeLimit,
+                due_date: quizConfig.dueDate,
+                student_year: quizConfig.student_year  // Changed from class to student_year
+            };
+
+            await axios.post('http://localhost:8000/api/upload-quiz', quizData);
+            navigate('/TeacherDashboard');
+        } catch (error) {
+            console.error("Error uploading quiz:", error);
+        }
     };
 
     const handleLogout = () => {
@@ -117,167 +177,240 @@ const AssignQuizzes = () => {
         navigate("/LoginPage");
     };
 
+    const handleClosePreview = () => {
+        setShowDiscardConfirmation(true);
+    };
+
+    // Preview Modal Component
+    const PreviewModal = ({isOpen, onClose}) => {
+        if (!isOpen || !generatedQuiz) return null;
+
+        const handleBackdropClick = (e) => {
+            if (e.target === e.currentTarget) {
+                handleClosePreview();
+            }
+        };
+
+        const styles = `
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #1E1C2E;
+        border-radius: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #3A3750;
+        border-radius: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #4A4760;
+    }
+`;
+
+        return (
+            <>
+                <style>{styles}</style>
+                <AnimatePresence>
+                    <motion.div
+                        initial={{opacity: 0}}
+                        animate={{opacity: 1}}
+                        exit={{opacity: 0}}
+                        className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+                        onClick={handleBackdropClick}
+                    >
+                        <motion.div
+                            initial={{scale: 0.95, opacity: 0}}
+                            animate={{scale: 1, opacity: 1}}
+                            exit={{scale: 0.95, opacity: 0}}
+                            className="bg-[#1E1C2E] p-6 rounded-lg shadow-lg w-[800px] max-h-[80vh] relative"
+                        >
+                            {/* Header with sticky close button */}
+                            <div
+                                className="sticky top-0 z-10 bg-[#1E1C2E] pt-2 pb-4 mb-4 flex justify-between items-center border-b border-gray-700">
+                                <h2 className="text-2xl font-bold text-white">Quiz Preview</h2>
+                                <button
+                                    onClick={handleClosePreview}
+                                    className="text-gray-400 hover:text-white hover:scale-110 transition-all"
+                                >
+                                    <X size={20}/>
+                                </button>
+                            </div>
+
+                            {/* Scrollable content with custom scrollbar */}
+                            <div className="overflow-y-auto max-h-[calc(80vh-180px)] pr-4 custom-scrollbar">
+                                <div className="space-y-8">
+                                    {generatedQuiz.questions.map((question, index) => (
+                                        <motion.div
+                                            key={index}
+                                            initial={{opacity: 0, y: 20}}
+                                            animate={{opacity: 1, y: 0}}
+                                            transition={{delay: index * 0.1}}
+                                            className="bg-[#2D2B3D] p-6 rounded-lg shadow-lg"
+                                        >
+                                            <div className="flex items-start gap-4">
+                                                <div
+                                                    className="flex-shrink-0 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                                                    {index + 1}
+                                                </div>
+                                                <div className="flex-grow">
+                                                    <h3 className="text-lg font-semibold text-white mb-4">
+                                                        {question.question}
+                                                    </h3>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                                        {question.options.map((option, optionIndex) => {
+                                                            const isCorrect = parseInt(question.correct_answer) === optionIndex;
+                                                            return (
+                                                                <motion.div
+                                                                    key={optionIndex}
+                                                                    whileHover={{scale: 1.02}}
+                                                                    className={`p-4 rounded-lg border transition-all ${
+                                                                        isCorrect
+                                                                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                                                                            : 'bg-[#1E1C2E] border-gray-600 text-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center gap-3">
+                                                                <span
+                                                                    className="w-6 h-6 rounded-full bg-[#2D2B3D] flex items-center justify-center text-sm">
+                                                                    {String.fromCharCode(65 + optionIndex)}
+                                                                </span>
+                                                                        <span>{option}</span>
+                                                                    </div>
+                                                                </motion.div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="bg-[#1E1C2E] p-4 rounded-lg">
+                                                        <p className="text-green-400 font-semibold mb-2">
+                                                            Correct
+                                                            Answer: {question.options[parseInt(question.correct_answer)]}
+                                                        </p>
+                                                        <p className="text-gray-400">
+                                                        <span
+                                                            className="font-semibold text-purple-400">Explanation:</span> {question.explanation}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Footer with action buttons */}
+                            <div
+                                className="sticky bottom-0 bg-[#1E1C2E] pt-4 mt-6 border-t border-gray-700 flex justify-end space-x-4">
+                                <motion.button
+                                    whileHover={{scale: 1.05}}
+                                    onClick={handleClosePreview}
+                                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                                >
+                                    Edit Quiz
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{scale: 1.05}}
+                                    onClick={handleUploadQuiz}
+                                    className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                                >
+                                    Upload Quiz
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+
+                    {/* Discard Confirmation Modal */}
+                    {showDiscardConfirmation && (
+                        <motion.div
+                            initial={{opacity: 0}}
+                            animate={{opacity: 1}}
+                            exit={{opacity: 0}}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]"
+                        >
+                            <motion.div
+                                initial={{scale: 0.95, opacity: 0}}
+                                animate={{scale: 1, opacity: 1}}
+                                exit={{scale: 0.95, opacity: 0}}
+                                className="bg-[#1E1C2E] p-6 rounded-lg shadow-lg w-96 text-white"
+                            >
+                                <h3 className="text-xl font-semibold mb-4">Discard Quiz?</h3>
+                                <p className="text-gray-400 mb-6">Are you sure you want to discard this quiz? This
+                                    action
+                                    cannot be undone.</p>
+                                <div className="flex justify-end space-x-4">
+                                    <motion.button
+                                        whileHover={{scale: 1.05}}
+                                        onClick={() => setShowDiscardConfirmation(false)}
+                                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                                    >
+                                        Cancel
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{scale: 1.05}}
+                                        onClick={() => {
+                                            setShowDiscardConfirmation(false);
+                                            setPreviewModalOpen(false);
+                                        }}
+                                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                    >
+                                        Discard
+                                    </motion.button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </>
+        );
+    };
+
+
     return (
         <div className="flex h-screen bg-[#2D2B3D]">
             {/* Sidebar */}
-            <div className="w-64 bg-[#1E1C2E] text-white p-6 flex flex-col">
-                {/* Logo */}
-                <div className="mb-8 whitespace-nowrap">
-                    <img
-                        src="../Images/HashLogoDashboard.png"
-                        alt="Hash Logo"
-                        className="h-12 w-auto transition-transform duration-200 transform hover:scale-110"
-                    />
-                </div>
-
-                <div className="border-b border-gray-700 mb-6"></div>
-
-                <motion.div
-                    whileHover={{scale: 1.02}}
-                    className="text-lg font-semibold mb-4 cursor-pointer text-white hover:text-purple-400"
-                    onClick={() => navigate("/TeacherDashboard")}
-                >
-                    Dashboard
-                </motion.div>
-
-                <div className="border-b border-gray-700 mb-6"></div>
-
-                {/* Quizzes Section */}
-                <div className="mb-6">
-                    <div className="text-[#8F8F8F] text-sm mb-3">QUIZZES</div>
-                    <ul className="space-y-3">
-                        <li className="flex items-center text-white bg-[#3A3750] cursor-default p-2 rounded-lg">
-                            <Plus size={18} className="mr-2"/> Assign Quiz
-                        </li>
-                        <motion.li
-                            whileHover={{x: 4}}
-                            className="flex items-center text-gray-300 hover:text-white cursor-pointer"
-                            onClick={() => navigate("/CompletedQuizzes")}
-                        >
-                            <CheckCircle size={18} className="mr-2"/> Completed Quizzes
-                        </motion.li>
-                    </ul>
-                </div>
-
-                <div className="border-b border-gray-700 mb-6"></div>
-
-                {/* Resources Section */}
-                <div className="mb-6">
-                    <div className="text-[#8F8F8F] text-sm mb-3">RESOURCES</div>
-                    <ul className="space-y-3">
-                        <motion.li
-                            whileHover={{x: 4}}
-                            className="flex items-center text-gray-300 hover:text-white cursor-pointer"
-                            onClick={() => navigate("/Syllabus")}
-                        >
-                            <Book size={18} className="mr-2"/> Syllabus
-                        </motion.li>
-                        <motion.li
-                            whileHover={{x: 4}}
-                            className="flex items-center text-gray-300 hover:text-white cursor-pointer"
-                            onClick={() => navigate("/PYQs")}
-                        >
-                            <FileText size={18} className="mr-2"/> PYQs
-                        </motion.li>
-                        <motion.li
-                            whileHover={{x: 4}}
-                            className="flex items-center text-gray-300 hover:text-white cursor-pointer"
-                            onClick={() => navigate("/Materials")}
-                        >
-                            <BookOpen size={18} className="mr-2"/> Materials
-                        </motion.li>
-                    </ul>
-                </div>
-
-                <div className="border-b border-gray-700 mb-6"></div>
-
-                {/* Students Section */}
-                <div className="mb-6">
-                    <div className="text-[#8F8F8F] text-sm mb-3">STUDENTS</div>
-                    <ul className="space-y-3">
-                        <motion.li
-                            whileHover={{x: 4}}
-                            className="flex items-center text-gray-300 hover:text-white cursor-pointer"
-                            onClick={() => navigate("/MyStudents")}
-                        >
-                            <Users size={18} className="mr-2"/> Student Section
-                        </motion.li>
-                        <motion.li
-                            whileHover={{x: 4}}
-                            className="flex items-center text-gray-300 hover:text-white cursor-pointer"
-                            onClick={() => navigate("/ViewRanks")}
-                        >
-                            <Trophy size={18} className="mr-2"/> Ranks Section
-                        </motion.li>
-                    </ul>
-                </div>
-
-                {/* Logout at bottom */}
-                <div className="mt-auto">
-                    <button
-                        onClick={() => setLogoutModalOpen(true)}
-                        className="flex items-center text-gray-300 hover:text-white hover:bg-[#3A3750] transition-all duration-200 p-2 rounded-lg w-full"
-                    >
-                        <LogOut size={18} className="mr-2"/> Logout
-                    </button>
-                </div>
-            </div>
+            <motion.div
+                initial={false}
+                animate={{
+                    width: sidebarOpen ? "16rem" : isMobile ? "0rem" : "16rem",
+                    padding: sidebarOpen ? "1.5rem" : isMobile ? "0rem" : "1.5rem",
+                    opacity: sidebarOpen ? 1 : isMobile ? 0 : 1
+                }}
+                transition={{duration: 0.3}}
+                className={`bg-[#1E1C2E] text-white h-screen sticky top-0 overflow-hidden ${isMobile ? 'absolute z-30' : ''}`}
+            >
+                <TeacherSidebar onLogout={() => setLogoutModalOpen(true)} currentPage="AssignQuizzes"/>
+            </motion.div>
 
             {/* Main Content */}
             <div className="flex-1 overflow-auto">
-                {/* Navbar */}
-                <div className="bg-[#1E1C2E] p-4 flex justify-between items-center shadow-md">
-                    <div className="flex items-center space-x-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                                    size={20}/>
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                className="pl-10 pr-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                        </div>
-                    </div>
+                <TeacherNavbar
+                    isMobile={isMobile}
+                    sidebarOpen={sidebarOpen}
+                    setSidebarOpen={setSidebarOpen}
+                />
 
-                    <div className="flex items-center space-x-6">
-                        <motion.button whileHover={{scale: 1.1}} className="relative">
-                            <Bell size={24} className="text-gray-300 hover:text-white"/>
-                            <span
-                                className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 text-xs flex items-center justify-center text-white">3</span>
-                        </motion.button>
-                        <div className="flex items-center space-x-3">
-                            <span className="text-white">Dr. Smith</span>
-                            <motion.img
-                                whileHover={{scale: 1.1}}
-                                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop"
-                                alt="Profile"
-                                className="w-10 h-10 rounded-full"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quiz Assignment Content */}
+                {/* Quiz Configuration Form */}
                 <div className="p-6">
                     <motion.div
                         initial={{opacity: 0, y: 20}}
                         animate={{opacity: 1, y: 0}}
                         className="bg-[#1E1C2E] rounded-xl p-6"
                     >
-                        <div className="flex items-center justify-between mb-8">
-                            <h1 className="text-2xl font-bold text-white">Assign New Quiz</h1>
-                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-6">Create New Quiz</h2>
 
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Step 1: Basic Details */}
-                            <div className={`space-y-4 ${step !== 1 && 'hidden'}`}>
+                        <div className="space-y-6">
+                            {/* Basic Quiz Details */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Subject
                                     </label>
                                     <select
                                         name="subject"
-                                        value={quizData.subject}
+                                        value={quizConfig.subject}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     >
@@ -289,19 +422,20 @@ const AssignQuizzes = () => {
                                         ))}
                                     </select>
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Module Number
+                                        Module
                                     </label>
                                     <select
-                                        name="moduleNo"
-                                        value={quizData.moduleNo}
+                                        name="moduleId"
+                                        value={quizConfig.moduleId}
                                         onChange={(e) => {
                                             handleInputChange(e);
-                                            setSelectedModuleId(e.target.value); // Update selectedModuleId
+                                            setSelectedModuleId(e.target.value);
                                         }}
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        disabled={!quizData.subject}
+                                        disabled={!quizConfig.subject}
                                     >
                                         <option value="">Select module</option>
                                         {modules.map(module => (
@@ -311,36 +445,34 @@ const AssignQuizzes = () => {
                                         ))}
                                     </select>
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Topic
                                     </label>
                                     <select
-                                        name="topic"
-                                        value={quizData.topic}
+                                        name="topicId"
+                                        value={quizConfig.topicId}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        disabled={!quizData.moduleNo}
+                                        disabled={!quizConfig.moduleId}
                                     >
                                         <option value="">Select topic</option>
-                                        {topics && topics.length > 0 ? (
-                                            topics.map(topic => (
-                                                <option key={topic.topic_id} value={topic.topic_id}>
-                                                    {topic.topic_name}
-                                                </option>
-                                            ))
-                                        ) : (
-                                            <option disabled>No topics available</option>
-                                        )}
+                                        {topics.map(topic => (
+                                            <option key={topic.topic_id} value={topic.topic_id}>
+                                                {topic.topic_name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Difficulty Level
                                     </label>
                                     <select
                                         name="difficulty"
-                                        value={quizData.difficulty}
+                                        value={quizConfig.difficulty}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     >
@@ -351,8 +483,8 @@ const AssignQuizzes = () => {
                                 </div>
                             </div>
 
-                            {/* Step 2: Quiz Settings */}
-                            <div className={`space-y-4 ${step !== 2 && 'hidden'}`}>
+                            {/* Quiz Settings */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Number of Questions
@@ -360,12 +492,13 @@ const AssignQuizzes = () => {
                                     <input
                                         type="number"
                                         name="questionCount"
-                                        value={quizData.questionCount}
+                                        value={quizConfig.questionCount}
                                         onChange={handleInputChange}
                                         min="1"
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Time Limit (minutes)
@@ -373,12 +506,13 @@ const AssignQuizzes = () => {
                                     <input
                                         type="number"
                                         name="timeLimit"
-                                        value={quizData.timeLimit}
+                                        value={quizConfig.timeLimit}
                                         onChange={handleInputChange}
                                         min="1"
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Due Date
@@ -386,123 +520,55 @@ const AssignQuizzes = () => {
                                     <input
                                         type="date"
                                         name="dueDate"
-                                        value={quizData.dueDate}
+                                        value={quizConfig.dueDate}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
                                 </div>
                             </div>
 
-                            {/* Step 3: Assign to Class */}
-                            <div className={`space-y-4 ${step !== 3 && 'hidden'}`}>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Select Class
-                                    </label>
-                                    <select
-                                        name="class"
-                                        value={quizData.class}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    >
-                                        <option value="">Select a class</option>
-                                        <option value="CSE-A">CSE-A</option>
-                                        <option value="CSE-B">CSE-B</option>
-                                        <option value="CSE-C">CSE-C</option>
-                                    </select>
-                                </div>
+                            {/* Student Year Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Select Student Year
+                                </label>
+                                <select
+                                    name="student_year"
+                                    value={quizConfig.student_year}
+                                    onChange={handleInputChange}
+                                    className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                >
+                                    <option value="">Select a year</option>
+                                    <option value="1">Year 1</option>
+                                    <option value="2">Year 2</option>
+                                    <option value="3">Year 3</option>
+                                    <option value="4">Year 4</option>
+                                </select>
                             </div>
 
-                            {/* Navigation Buttons */}
-                            <div className="flex justify-between pt-6">
-                                {step > 1 && (
-                                    <motion.button
-                                        whileHover={{scale: 1.05}}
-                                        type="button"
-                                        onClick={() => setStep(step - 1)}
-                                        className="px-6 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
-                                    >
-                                        Previous
-                                    </motion.button>
-                                )}
-                                <div className="flex space-x-4">
-                                    <motion.button
-                                        whileHover={{scale: 1.05}}
-                                        type="button"
-                                        onClick={handleGenerateWithAI}
-                                        className="flex items-center space-x-2 px-6 py-2 bg-[#2D2B3D] rounded-lg hover:bg-[#3A3750] transition-colors"
-                                    >
-                                        <Wand2 size={18}/>
-                                        <span>Generate with AI</span>
-                                    </motion.button>
-                                    {step < 3 ? (
-                                        <motion.button
-                                            whileHover={{scale: 1.05}}
-                                            type="button"
-                                            onClick={() => setStep(step + 1)}
-                                            className="px-6 py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
-                                        >
-                                            Next
-                                        </motion.button>
-                                    ) : (
-                                        <motion.button
-                                            whileHover={{scale: 1.05}}
-                                            type="submit"
-                                            className="px-6 py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
-                                        >
-                                            Assign Quiz
-                                        </motion.button>
-                                    )}
-                                </div>
+                            {/* Generate Quiz Button */}
+                            <div className="flex justify-end">
+                                <motion.button
+                                    whileHover={{scale: 1.05}}
+                                    whileTap={{scale: 0.95}}
+                                    onClick={handleGenerateQuiz}
+                                    disabled={loading}
+                                    className="flex items-center space-x-2 px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Wand2 size={20}/>
+                                    <span>{loading ? 'Generating...' : 'Generate Quiz'}</span>
+                                </motion.button>
                             </div>
-                        </form>
+                        </div>
                     </motion.div>
                 </div>
             </div>
 
-            {/* AI Generation Modal */}
-            <AnimatePresence>
-                {showAIModal && (
-                    <motion.div
-                        initial={{opacity: 0}}
-                        animate={{opacity: 1}}
-                        exit={{opacity: 0}}
-                        className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
-                    >
-                        <motion.div
-                            initial={{scale: 0.95, opacity: 0}}
-                            animate={{scale: 1, opacity: 1}}
-                            exit={{scale: 0.95, opacity: 0}}
-                            className="bg-[#1E1C2E] p-6 rounded-lg shadow-lg w-full max-w-md text-white relative"
-                        >
-                            <button
-                                onClick={() => setShowAIModal(false)}
-                                className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                            >
-                                <X size={20}/>
-                            </button>
-                            <h2 className="text-xl font-semibold mb-4">Generate Quiz with AI</h2>
-                            <p className="text-gray-400 mb-6">
-                                Our AI will generate questions based on your subject and topic. You can review and
-                                modify them before assigning.
-                            </p>
-                            <div className="space-y-4">
-                                <motion.button
-                                    whileHover={{scale: 1.02}}
-                                    onClick={() => {
-                                        // Handle AI generation
-                                        setShowAIModal(false);
-                                    }}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
-                                >
-                                    <Wand2 size={18}/>
-                                    <span>Generate Questions</span>
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Preview Modal */}
+            <PreviewModal
+                isOpen={previewModalOpen}
+                onClose={() => setPreviewModalOpen(false)}
+            />
 
             {/* Logout Modal */}
             <AnimatePresence>
