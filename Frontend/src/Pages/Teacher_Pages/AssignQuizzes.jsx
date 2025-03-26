@@ -7,6 +7,8 @@ import {motion, AnimatePresence} from "framer-motion";
 import axios from 'axios';
 import TeacherNavbar from '../../Components/TeacherNavbar';
 import TeacherSidebar from '../../Components/TeacherSidebar';
+import EditQuizModal from '../../Components/EditQuizModal';
+import DatePicker from '../../Components/DatePicker';
 
 const AssignQuizzes = () => {
     const navigate = useNavigate();
@@ -22,6 +24,8 @@ const AssignQuizzes = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
     const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [selectedDate, setSelectedDate] = useState(null);
 
     // Quiz configuration state
     const [quizConfig, setQuizConfig] = useState({
@@ -32,7 +36,7 @@ const AssignQuizzes = () => {
         questionCount: 10,
         timeLimit: 30,
         dueDate: '',
-        student_year: ''  // Changed from class to student_year
+        student_year: ''
     });
 
     useEffect(() => {
@@ -118,57 +122,82 @@ const AssignQuizzes = () => {
             const payload = {
                 topic_id: quizConfig.topicId,
                 difficulty: quizConfig.difficulty,
-                question_count: quizConfig.questionCount,
-                student_year: quizConfig.student_year
+                question_count: parseInt(quizConfig.questionCount),
+                student_year: parseInt(quizConfig.student_year)
             };
 
-            console.log("📌 Sending Payload to Backend:", payload);  // ✅ Debugging log
+            console.log("📌 Sending Payload to Backend:", payload);
 
             const response = await axios.post('http://localhost:8000/api/generate-quiz', payload);
+            console.log("📌 Raw API Response:", response.data);
 
-            let quizData = response.data?.quiz;
-            console.log("📌 Raw Quiz Data:", quizData);
+            if (response.data?.quiz) {
+                let quizData = response.data.quiz;
 
-            if (typeof quizData === 'string' && quizData.startsWith("```json")) {
-                quizData = quizData.replace(/```json\n?/, '').replace(/\n?```/, '');
-                quizData = JSON.parse(quizData);
-            }
+                // Handle string JSON response
+                if (typeof quizData === 'string') {
+                    try {
+                        quizData = quizData.replace(/```json\n?|\n?```/g, '').trim();
+                        quizData = JSON.parse(quizData);
+                    } catch (e) {
+                        console.error("Failed to parse quiz JSON:", e);
+                        throw new Error("Invalid quiz format received");
+                    }
+                }
 
-            if (typeof quizData === 'object' && quizData !== null) {
-                console.log("📌 Full Quiz Data:", JSON.stringify(quizData, null, 2));
+                console.log("📌 Processed Quiz Data:", quizData);
                 setGeneratedQuiz(quizData);
                 setPreviewModalOpen(true);
             } else {
-                console.error("❌ Unexpected quiz format:", quizData);
+                throw new Error("No quiz data in response");
             }
         } catch (error) {
             console.error("❌ Error generating quiz:", error);
-            if (error.response) {
-                console.error("📌 Response Data:", error.response.data);  // ✅ Log backend error
-            }
+            alert("Failed to generate quiz. Please try again.");
         } finally {
             setLoading(false);
         }
     };
 
+    const handleQuizUpdate = (updatedQuiz) => {
+        setGeneratedQuiz(updatedQuiz);
+        setEditModalOpen(false);
+        setPreviewModalOpen(true);
+    };
 
     const handleUploadQuiz = async () => {
         try {
+            if (!generatedQuiz || !generatedQuiz.questions) {
+                throw new Error("No quiz data available");
+            }
+
+            // Format the date to YYYY-MM-DD
+            const formattedDate = quizConfig.dueDate;
+
             const quizData = {
                 teacher_id: currentTeacherId,
                 subject_id: quizConfig.subject,
                 topic_id: quizConfig.topicId,
                 difficulty: quizConfig.difficulty,
-                questions: generatedQuiz.questions,
-                time_limit: quizConfig.timeLimit,
-                due_date: quizConfig.dueDate,
-                student_year: quizConfig.student_year  // Changed from class to student_year
+                questions: generatedQuiz.questions.map(q => ({
+                    ...q,
+                    correct_answer: q.correct_answer.toString() // Ensure correct_answer is a string
+                })),
+                time_limit: parseInt(quizConfig.timeLimit),
+                due_date: formattedDate,
+                student_year: parseInt(quizConfig.student_year)
             };
 
-            await axios.post('http://localhost:8000/api/upload-quiz', quizData);
+            console.log("📤 Uploading quiz data:", quizData);
+
+            const response = await axios.post('http://localhost:8000/api/upload-quiz', quizData);
+            console.log("📥 Upload response:", response.data);
+
+            alert("Quiz uploaded successfully!");
             navigate('/TeacherDashboard');
         } catch (error) {
-            console.error("Error uploading quiz:", error);
+            console.error("❌ Error uploading quiz:", error);
+            alert("Failed to upload quiz. Please try again.");
         }
     };
 
@@ -178,7 +207,14 @@ const AssignQuizzes = () => {
     };
 
     const handleClosePreview = () => {
-        setShowDiscardConfirmation(true);
+        if (!editModalOpen) {
+            setShowDiscardConfirmation(true);
+        }
+    };
+
+    const handleEditClick = () => {
+        setPreviewModalOpen(false);
+        setEditModalOpen(true);
     };
 
     // Preview Modal Component
@@ -227,8 +263,8 @@ const AssignQuizzes = () => {
                             animate={{scale: 1, opacity: 1}}
                             exit={{scale: 0.95, opacity: 0}}
                             className="bg-[#1E1C2E] p-6 rounded-lg shadow-lg w-[800px] max-h-[80vh] relative"
+                            onClick={e => e.stopPropagation()}
                         >
-                            {/* Header with sticky close button */}
                             <div
                                 className="sticky top-0 z-10 bg-[#1E1C2E] pt-2 pb-4 mb-4 flex justify-between items-center border-b border-gray-700">
                                 <h2 className="text-2xl font-bold text-white">Quiz Preview</h2>
@@ -240,7 +276,6 @@ const AssignQuizzes = () => {
                                 </button>
                             </div>
 
-                            {/* Scrollable content with custom scrollbar */}
                             <div className="overflow-y-auto max-h-[calc(80vh-180px)] pr-4 custom-scrollbar">
                                 <div className="space-y-8">
                                     {generatedQuiz.questions.map((question, index) => (
@@ -274,10 +309,10 @@ const AssignQuizzes = () => {
                                                                     }`}
                                                                 >
                                                                     <div className="flex items-center gap-3">
-                                                                <span
-                                                                    className="w-6 h-6 rounded-full bg-[#2D2B3D] flex items-center justify-center text-sm">
-                                                                    {String.fromCharCode(65 + optionIndex)}
-                                                                </span>
+                                                                        <span
+                                                                            className="w-6 h-6 rounded-full bg-[#2D2B3D] flex items-center justify-center text-sm">
+                                                                            {String.fromCharCode(65 + optionIndex)}
+                                                                        </span>
                                                                         <span>{option}</span>
                                                                     </div>
                                                                 </motion.div>
@@ -290,8 +325,8 @@ const AssignQuizzes = () => {
                                                             Answer: {question.options[parseInt(question.correct_answer)]}
                                                         </p>
                                                         <p className="text-gray-400">
-                                                        <span
-                                                            className="font-semibold text-purple-400">Explanation:</span> {question.explanation}
+                                                            <span
+                                                                className="font-semibold text-purple-400">Explanation:</span> {question.explanation}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -301,12 +336,11 @@ const AssignQuizzes = () => {
                                 </div>
                             </div>
 
-                            {/* Footer with action buttons */}
                             <div
                                 className="sticky bottom-0 bg-[#1E1C2E] pt-4 mt-6 border-t border-gray-700 flex justify-end space-x-4">
                                 <motion.button
                                     whileHover={{scale: 1.05}}
-                                    onClick={handleClosePreview}
+                                    onClick={handleEditClick}
                                     className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                                 >
                                     Edit Quiz
@@ -322,7 +356,6 @@ const AssignQuizzes = () => {
                         </motion.div>
                     </motion.div>
 
-                    {/* Discard Confirmation Modal */}
                     {showDiscardConfirmation && (
                         <motion.div
                             initial={{opacity: 0}}
@@ -338,8 +371,7 @@ const AssignQuizzes = () => {
                             >
                                 <h3 className="text-xl font-semibold mb-4">Discard Quiz?</h3>
                                 <p className="text-gray-400 mb-6">Are you sure you want to discard this quiz? This
-                                    action
-                                    cannot be undone.</p>
+                                    action cannot be undone.</p>
                                 <div className="flex justify-end space-x-4">
                                     <motion.button
                                         whileHover={{scale: 1.05}}
@@ -367,10 +399,8 @@ const AssignQuizzes = () => {
         );
     };
 
-
     return (
         <div className="flex h-screen bg-[#2D2B3D]">
-            {/* Sidebar */}
             <motion.div
                 initial={false}
                 animate={{
@@ -384,7 +414,6 @@ const AssignQuizzes = () => {
                 <TeacherSidebar onLogout={() => setLogoutModalOpen(true)} currentPage="AssignQuizzes"/>
             </motion.div>
 
-            {/* Main Content */}
             <div className="flex-1 overflow-auto">
                 <TeacherNavbar
                     isMobile={isMobile}
@@ -392,7 +421,6 @@ const AssignQuizzes = () => {
                     setSidebarOpen={setSidebarOpen}
                 />
 
-                {/* Quiz Configuration Form */}
                 <div className="p-6">
                     <motion.div
                         initial={{opacity: 0, y: 20}}
@@ -402,7 +430,6 @@ const AssignQuizzes = () => {
                         <h2 className="text-2xl font-bold text-white mb-6">Create New Quiz</h2>
 
                         <div className="space-y-6">
-                            {/* Basic Quiz Details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -483,7 +510,6 @@ const AssignQuizzes = () => {
                                 </div>
                             </div>
 
-                            {/* Quiz Settings */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -517,17 +543,21 @@ const AssignQuizzes = () => {
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Due Date
                                     </label>
-                                    <input
-                                        type="date"
-                                        name="dueDate"
-                                        value={quizConfig.dueDate}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-2 bg-[#2D2B3D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    <DatePicker
+                                        date={selectedDate}
+                                        setDate={(date) => {
+                                            setSelectedDate(date);
+                                            handleInputChange({
+                                                target: {
+                                                    name: 'dueDate',
+                                                    value: date ? date.toISOString().split('T')[0] : ''
+                                                }
+                                            });
+                                        }}
                                     />
                                 </div>
                             </div>
 
-                            {/* Student Year Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
                                     Select Student Year
@@ -546,7 +576,6 @@ const AssignQuizzes = () => {
                                 </select>
                             </div>
 
-                            {/* Generate Quiz Button */}
                             <div className="flex justify-end">
                                 <motion.button
                                     whileHover={{scale: 1.05}}
@@ -564,13 +593,18 @@ const AssignQuizzes = () => {
                 </div>
             </div>
 
-            {/* Preview Modal */}
             <PreviewModal
                 isOpen={previewModalOpen}
                 onClose={() => setPreviewModalOpen(false)}
             />
 
-            {/* Logout Modal */}
+            <EditQuizModal
+                isOpen={editModalOpen}
+                onClose={() => setEditModalOpen(false)}
+                quiz={generatedQuiz}
+                onSave={handleQuizUpdate}
+            />
+
             <AnimatePresence>
                 {logoutModalOpen && (
                     <motion.div

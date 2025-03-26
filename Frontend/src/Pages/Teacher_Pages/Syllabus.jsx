@@ -197,8 +197,6 @@ const Syllabus = () => {
             return null;
         }
 
-        console.log("📌 Received teacherId in PreviewModal:", teacherId);
-
         const handleUpload = async () => {
             if (!data || !data.Subject) {
                 alert("Error: Subject name is missing!");
@@ -210,8 +208,7 @@ const Syllabus = () => {
                 return;
             }
 
-            // Extract student year from the data
-            const studentYear = data.StudentYear || "1"; // Default to 1 if not found
+            const studentYear = data.StudentYear || "1";
 
             const formattedData = {
                 subject_name: data.Subject,
@@ -239,8 +236,6 @@ const Syllabus = () => {
                     }
                 );
 
-                console.log("📥 Server response:", response);
-
                 if (response.status >= 200 && response.status < 300) {
                     alert("Syllabus uploaded successfully!");
                     onClose();
@@ -254,6 +249,25 @@ const Syllabus = () => {
             }
         };
 
+        const styles = `
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1E1C2E;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3A3750;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #4A4760;
+        }
+    `;
 
         return (
             <motion.div
@@ -262,66 +276,111 @@ const Syllabus = () => {
                 exit={{opacity: 0}}
                 className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
             >
+                <style>{styles}</style>
                 <motion.div
                     initial={{scale: 0.95, opacity: 0}}
                     animate={{scale: 1, opacity: 1}}
                     exit={{scale: 0.95, opacity: 0}}
-                    className="bg-[#1E1C2E] p-6 rounded-lg shadow-lg w-[800px] max-h-[80vh] overflow-y-auto text-white relative"
+                    className="bg-[#1E1C2E] p-6 rounded-lg shadow-lg w-[800px] max-h-[80vh] relative"
                 >
-                    <button
-                        onClick={onClose}
-                        className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                    >
-                        <X size={20}/>
-                    </button>
-                    <h2 className="text-xl font-semibold mb-6">Syllabus Preview</h2>
+                    {/* Header with sticky close button */}
+                    <div
+                        className="sticky top-0 z-10 bg-[#1E1C2E] pt-2 pb-4 mb-4 flex justify-between items-center border-b border-gray-700">
+                        <h2 className="text-2xl font-bold text-white">Syllabus Preview</h2>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-white hover:scale-110 transition-all"
+                        >
+                            <X size={20}/>
+                        </button>
+                    </div>
 
-                    <div className="space-y-6">
-                        <div>
-                            <h3 className="text-lg font-semibold text-purple-400">Subject</h3>
-                            <p className="text-white">{data.Subject || "No subject available"}</p>
-                        </div>
-
-                        <div>
-                            <h3 className="text-lg font-semibold text-purple-400 mb-4">Modules</h3>
-                            {data.Syllabus ? (
-                                data.Syllabus.map((module, index) => (
-                                    <div key={index} className="bg-[#2D2B3D] p-4 rounded-lg mb-4">
-                                        <h4 className="font-semibold text-white mb-2">{module.module || "No module name"}</h4>
-                                        <p className="text-gray-400 mb-2">{module.subject || "No subject description"}</p>
-                                        <div className="space-y-2">
-                                            <h5 className="text-sm font-medium text-purple-400">Topics:</h5>
-                                            <ul className="list-disc list-inside text-gray-300">
-                                                {module.topic && module.topic.length > 0 ? (
-                                                    module.topic.map((topic, topicIndex) => (
-                                                        <li key={topicIndex}>{topic}</li>
-                                                    ))
-                                                ) : (
-                                                    <li>No topics available</li>
-                                                )}
-                                            </ul>
-                                        </div>
+                    {/* Scrollable content with custom scrollbar */}
+                    <div className="overflow-y-auto max-h-[calc(80vh-180px)] pr-4 custom-scrollbar">
+                        <div className="space-y-6">
+                            {/* Subject Information */}
+                            <motion.div
+                                initial={{opacity: 0, y: 20}}
+                                animate={{opacity: 1, y: 0}}
+                                className="bg-[#2D2B3D] p-6 rounded-lg"
+                            >
+                                <h3 className="text-lg font-semibold text-purple-400 mb-4">Subject Information</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-gray-400">Subject Name</p>
+                                        <p className="text-white text-lg">{data.Subject}</p>
                                     </div>
-                                ))
-                            ) : (
-                                <p className="text-gray-400">No syllabus data available.</p>
-                            )}
+                                    <div>
+                                        <p className="text-gray-400">Student Year</p>
+                                        <p className="text-white text-lg">{data.StudentYear}</p>
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            {/* Modules and Topics */}
+                            <div className="space-y-6">
+                                {data.Syllabus?.map((module, moduleIndex) => (
+                                    <motion.div
+                                        key={moduleIndex}
+                                        initial={{opacity: 0, y: 20}}
+                                        animate={{opacity: 1, y: 0}}
+                                        transition={{delay: moduleIndex * 0.1}}
+                                        className="bg-[#2D2B3D] p-6 rounded-lg"
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            <div
+                                                className="flex-shrink-0 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                                                {moduleIndex + 1}
+                                            </div>
+                                            <div className="flex-grow">
+                                                <h3 className="text-lg font-semibold text-white mb-2">
+                                                    {module.module}
+                                                </h3>
+                                                <p className="text-gray-400 mb-4">{module.subject}</p>
+
+                                                <div className="bg-[#1E1C2E] p-4 rounded-lg">
+                                                    <h4 className="text-purple-400 font-semibold mb-3">Topics</h4>
+                                                    <div className="grid gap-2">
+                                                        {module.topic.map((topic, topicIndex) => (
+                                                            <motion.div
+                                                                key={topicIndex}
+                                                                initial={{opacity: 0, x: -20}}
+                                                                animate={{opacity: 1, x: 0}}
+                                                                transition={{delay: topicIndex * 0.05}}
+                                                                className="flex items-center space-x-2 text-gray-300"
+                                                            >
+                                                                <div
+                                                                    className="w-2 h-2 rounded-full bg-purple-500"></div>
+                                                                <span>{topic}</span>
+                                                            </motion.div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-end space-x-4 mt-6">
-                        <button
+                    {/* Footer with action buttons */}
+                    <div
+                        className="sticky bottom-0 bg-[#1E1C2E] pt-4 mt-6 border-t border-gray-700 flex justify-end space-x-4">
+                        <motion.button
+                            whileHover={{scale: 1.05}}
                             onClick={onClose}
                             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileHover={{scale: 1.05}}
                             onClick={handleUpload}
                             className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
                         >
                             Upload Syllabus
-                        </button>
+                        </motion.button>
                     </div>
                 </motion.div>
             </motion.div>
